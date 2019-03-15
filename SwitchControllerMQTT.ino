@@ -1,34 +1,41 @@
 /*------------------------- Pre-Configuration ----------------------------*/
-#define ENABLE_DHCP                true
-#define ENABLE_EXTERNAL_WATCHDOG   true
-#define _DEBUG_LEVEL               1
+#define W5500                       5500
+#define W5100                       5100
+#define ETHER_TYPE                  W5500
+#define ENABLE_DHCP                 false
+#define ENABLE_EXTERNAL_WATCHDOG    true
+#define _DEBUG_LEVEL                1
 
-#define BROKER_IP                  192,168,1,50
+#define BROKER_IP                   10,90,72,88
 
-#define HOST_IP                    192,168,1,164
-#define HOST_NETMASK               255,255,255,0
-#define HOST_DNS                   192,168,1,1
-#define HOST_GATEWAY               192,168,1,1
+#define HOST_IP                     10,90,72,46
+#define HOST_NETMASK                255,0,0,0
+#define HOST_DNS                    172,19,10,100
+#define HOST_GATEWAY                10,1,1,254
 
-#define MAC_REFRESH                false
-#define MAC_0                      0xDA
-#define MAC_1                      0x00
-#define MAC_2                      0x00
-#define MAC_3                      0x00
-#define MAC_4                      0x00
-#define MAC_5                      0x00
+#define MAC_REFRESH                 false
+#define MAC_0                       0xDA
+#define MAC_1                       0x00
+#define MAC_2                       0x00
+#define MAC_3                       0x00
+#define MAC_4                       0x00
+#define MAC_5                       0x00
 
 /*------------------------------- Start ----------------------------------*/
 #include <SPI.h>
 #include <Wire.h>
 #include <EEPROM.h>
 #include <PubSubClient.h>
+#if (ETHER_TYPE == W5500)
+#include <Ethernet2.h>
+#else
 #include <Ethernet.h>
+#endif
 
 /*----------------------------- Watch dog --------------------------------*/
 #define WATCHDOG_PIN                    7
 #define WATCHDOG_PULSE_LENGTH           50        // Milliseconds
-#define WATCHDOG_RESET_INTERVAL         20000      // Milliseconds. Also the period for sensor reports.
+#define WATCHDOG_RESET_INTERVAL         12000      // Milliseconds. Also the period for sensor reports.
 long watchdogLastResetTime = 0;
 
 /*-------------------------- Get MAC address -----------------------------*/
@@ -75,29 +82,34 @@ IPAddress gateway(DEF_GATEWAY);
 #define BUTTON_MAX                  48
 #define BUTTON_TYPE_MOMENTARY       0
 #define BUTTON_TYPE_LATCHING        1
-static byte buttontype[BUTTON_MAX] = { 0,  0,  0,  0,    0,  0,  0,  0,
-                                       0,  0,  0,  0,    0,  0,  0,  0,
-                                       0,  0,  0,  0,    0,  0,  0,  0,
-                                       0,  0,  0,  0,    0,  0,  0,  0,
-                                       0,  0,  0,  0,    0,  0,  0,  0,
-                                       1,  1,  1,  1,    0,  0,  0,  0 };
-static byte lastButtonState[BUTTON_MAX] = { 0,  0,  0,  0,    0,  0,  0,  0,
-                                            0,  0,  0,  0,    0,  0,  0,  0,
-                                            0,  0,  0,  0,    0,  0,  0,  0,
-                                            0,  0,  0,  0,    0,  0,  0,  0,
-                                            0,  0,  0,  0,    0,  0,  0,  0,
-                                            0,  0,  0,  0,    0,  0,  0,  0 };
-static byte buttonArray[BUTTON_MAX] = {54, 55, 56, 57,   58, 59, 60, 61,      // A0-A7
-                                       62, 63, 64, 65,   66, 67, 68, 69,      // A8-A15
-                                       40, 41, 42, 43,   44, 45, 46, 47,      // D40-D47
-                                       32, 33, 34, 35,   36, 37, 38, 39,      // D16-D23
-                                       24, 25, 26, 27,   28, 29, 30, 31,      // D24-D31
-                                       16, 17, 18, 19,   20, 21, 22, 23 };    // D32-D39
+
+static byte buttontype[BUTTON_MAX] =
+                        { 0,  0,  0,  0,    0,  0,  0,  0,
+                          0,  0,  0,  0,    0,  0,  0,  0,
+                          0,  0,  0,  0,    0,  0,  0,  0,
+                          0,  0,  0,  0,    0,  0,  0,  0,
+                          0,  0,  0,  0,    0,  0,  0,  0,
+                          1,  1,  1,  1,    0,  0,  0,  0 };
+static byte lastButtonState[BUTTON_MAX] =
+                        { 1,  1,  1,  1,    1,  1,  1,  1,
+                          1,  1,  1,  1,    1,  1,  1,  1,
+                          1,  1,  1,  1,    1,  1,  1,  1,
+                          1,  1,  1,  1,    1,  1,  1,  1,
+                          1,  1,  1,  1,    1,  1,  1,  1,
+                          1,  1,  1,  1,    1,  1,  1,  1 };
+static byte buttonArray[BUTTON_MAX] =
+                        {54, 55, 56, 57,   58, 59, 60, 61,      // A0-A7
+                         62, 63, 64, 65,   66, 67, 68, 69,      // A8-A15
+                         40, 41, 42, 43,   44, 45, 46, 47,      // D40-D47
+                         32, 33, 34, 35,   36, 37, 38, 39,      // D16-D23
+                         24, 25, 26, 27,   28, 29, 30, 31,      // D24-D31
+                         16, 17, 18, 19,   20, 21, 22, 23 };    // D32-D39
+static long lastActivityTime_array[BUTTON_MAX] = {0};
 
 byte lastButtonPressed         = 0;
-#define DEBOUNCE_DELAY         50
-#define BUTTON_PRESSED         1
-#define BUTTON_NOT_PRESSED     0
+#define DEBOUNCE_DELAY         100
+#define BUTTON_PRESSED         0
+#define BUTTON_NOT_PRESSED     1
 
 
 /* MQTT define */
@@ -125,10 +137,11 @@ PubSubClient client(ethclient);
  */
 void setup()
 {
+  delay(250);
   Wire.begin();        // Wake up I2C bus
   Serial.begin(9600);  // Use the serial port to report back readings
 
-  /* Set up the watchdog timer */
+  /* Set up the watchdog timer */ 
   if(ENABLE_EXTERNAL_WATCHDOG == true)
   {
     pinMode(WATCHDOG_PIN, OUTPUT);
@@ -236,34 +249,23 @@ void processButtonDigital( byte buttonId )
             if( (millis() - lastActivityTime) > DEBOUNCE_DELAY )  // Proceed if we haven't seen a recent event on this button
             {
                 lastActivityTime = millis();
-
-                lastButtonPressed = buttonId;
                 button_pressed(buttonId);
-
                 lastButtonState[buttonId] = sensorReading;
             }
         }
     }
-    else
+    else  // GQ16
     {
-        if( sensorReading == BUTTON_NOT_PRESSED )  // Input pulled low to GND. Button pressed.
-        {
-            if( lastButtonState[buttonId] == BUTTON_NOT_PRESSED )   // The button was previously un-pressed
+        if (sensorReading == BUTTON_PRESSED){
+            if( (millis() - lastActivityTime_array[buttonId] > DEBOUNCE_DELAY) && lastButtonState[buttonId] == BUTTON_NOT_PRESSED)
             {
-                if((millis() - lastActivityTime) > DEBOUNCE_DELAY || (buttonId != lastButtonPressed) )  // Proceed if we haven't seen a recent event on this button
-                {
-                    lastActivityTime = millis();
-
-                    lastButtonPressed = buttonId;
-                    button_pressed(buttonId);
-
-                }
+                lastButtonState[buttonId] = BUTTON_PRESSED;
+                lastActivityTime_array[buttonId] = millis();
+                button_pressed(buttonId);
             }
-            lastButtonState[buttonId] = BUTTON_PRESSED;
         }
-        else
-        {
-            lastButtonState[buttonId] = BUTTON_NOT_PRESSED;
+        else {
+          lastButtonState[buttonId] = BUTTON_NOT_PRESSED;
         }
     }
 }
