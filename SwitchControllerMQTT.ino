@@ -107,7 +107,7 @@ static byte buttonArray[BUTTON_MAX] =
 static long lastActivityTime_array[BUTTON_MAX] = {0};
 
 byte lastButtonPressed         = 0;
-#define DEBOUNCE_DELAY         100
+#define DEBOUNCE_DELAY         200
 #define BUTTON_PRESSED         0
 #define BUTTON_NOT_PRESSED     1
 
